@@ -3,9 +3,10 @@
 
 import           Control.Applicative
 import           Control.Monad
-import qualified Data.Map                     as M
+import qualified Data.Map            as M
 import           Text.RawString.QQ
 import           Text.Trifecta
+import Data.Maybe
 
 -- Basic field specifications
 data DataType = UInt1 | Int1 | UInt2 | Int2 | UInt4 | Int4 | UInt8 | Int8 | Float4 | Float8
@@ -62,8 +63,23 @@ parseHeader = fmap M.fromList $ skipNrrdMagic *> manyTill (skipComments *> parse
 getKVPs :: String -> Result KVPs
 getKVPs s = parseString parseHeader mempty s
 
+parseSizes :: Parser [Integer]
+parseSizes = some integer
 
 
+-- Check for valid values
+
+maybeSuccess :: Result a -> Maybe a
+maybeSuccess (Success a) = Just a
+maybeSuccess _ = Nothing
+
+getSizes :: String -> Maybe [Integer]
+getSizes = maybeSuccess . (parseString parseSizes mempty)
+
+checkSizes :: KVPs -> [Integer] -> Bool
+checkSizes kvps validSizes =  sizes == validSizes
+  where
+    sizes = fromMaybe [] $ (M.lookup "sizes" kvps) >>= getSizes
 
 -- Test
 p x = parseString x mempty
