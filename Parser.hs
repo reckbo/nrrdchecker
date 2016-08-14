@@ -1,18 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TupleSections     #-}
 
 import           Control.Applicative
 import           Control.Monad
+import           Data.Char
 import qualified Data.Map            as M
+import           Data.Maybe
 import           Text.RawString.QQ
 import           Text.Trifecta
-import Data.Maybe
 
 -- Basic field specifications
 data DataType = UInt1 | Int1 | UInt2 | Int2 | UInt4 | Int4 | UInt8 | Int8 | Float4 | Float8
 
 -- Space and orientation
 data Space = LPS | RPS | RAS | LAS
+  deriving (Show, Eq)
 type SpaceDirections = [Int]
 type SpaceOrigin = [Int]
 
@@ -62,6 +65,9 @@ parseHeader = parseString parser mempty
   where
     parser = fmap M.fromList $ skipNrrdMagic *> some (skipComments *> parseKVP)
 
+readHeader :: String -> KVPs
+readHeader = (fromResult M.empty) . parseHeader
+
 
 getHeader :: String -> String
 getHeader s = case parseString parser mempty s of
@@ -71,36 +77,60 @@ getHeader s = case parseString parser mempty s of
      parser = manyTill anyChar end
      end = (void $ string "\n\n") <|> eof
 
-parseSizes :: Parser [Integer]
-parseSizes = some integer
-
 -- Check for valid values
 
 maybeSuccess :: Result a -> Maybe a
 maybeSuccess (Success a) = Just a
 maybeSuccess _ = Nothing
 
+fromResult :: a -> Result a -> a
+fromResult _ (Success a) = a
+fromResult x _ = x
+
 note :: e -> Maybe a -> Either e a
 note e Nothing  = Left e
 note _ (Just a) = Right a
 
-getSizes :: String -> Maybe [Integer]
-getSizes = maybeSuccess . (parseString parseSizes mempty)
+readArray :: String -> [Integer]
+readArray s = fromResult [] $ parseString (some integer) mempty s
 
-checkSizes :: KVPs -> [Integer] -> Bool
-checkSizes kvps validSizes =  sizes == validSizes
-  where
-    sizes = fromMaybe [] $ (M.lookup "sizes" kvps) >>= getSizes
+readSpace :: String -> Space
+readSpace s = case (map toLower s) of
+  "lps" -> LPS
+  "left-posterior-superior" -> LPS
+  "rps" -> RPS
+  "right-anterior-superior" -> RAS
+  "las" -> LAS
+  "left-anterior-posterior" -> LAS
 
 -- Test
 p x = parseString x mempty
+
+
+type Validator = (String, String -> Bool)
+
+validators :: [Validator]
+validators = [
+  ("dimension", (=="3") ),
+  ("encoding", (=="gzip") ),
+  ("sizes", (==[256,256,176]) . readArray),
+  ("space", (==LPS) . readSpace )
+  ]
+
+validateKey :: KVPs -> (String, (String -> Bool)) -> Bool
+validateKey kvps (key, pred) = fromMaybe False $ pred <$> M.lookup key kvps
+
+validate :: KVPs -> [(String, (String -> Bool))] -> Bool
+validate kvps preds = and $ map (validateKey kvps) preds
 
 main :: IO ()
 main = do
   nrrd <- readFile "test.nhdr"
   let hdr = getHeader nrrd
   print hdr
-  print $ parseHeader hdr
+  let kvps = readHeader hdr
+  putStrLn "Does test header pass?"
+  print $ validate kvps validators
 
 testHeader = [r|NRRD0004
 # Complete NRRD file format specification at:
