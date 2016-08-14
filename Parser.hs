@@ -38,11 +38,11 @@ skipNrrdMagic = void $ string "NRRD000" *> anyChar *> newline
 parseKey :: Parser String
 parseKey = try twoWords <|> try oneWord
   where
-    oneWord = many letter
+    oneWord = some letter
     twoWords = do
-          w1 <- many letter
+          w1 <- oneWord
           char ' '
-          w2 <- many letter
+          w2 <- oneWord
           return $ w1++" "++w2
 
 parseKVP :: Parser (String, String)
@@ -116,4 +116,7 @@ encoding: gzip
 space origin: (87.5, -127.5, 127.5)
 
 rawdatagoesheredonotparse|]
+
+badHeader = [r|NRRD0004
+type : short |]
 
