@@ -49,7 +49,7 @@ parseKVP :: Parser (String, String)
 parseKVP = do
   key <- parseKey
   token $ char ':'
-  value <- manyTill anyChar newline
+  value <- manyTill anyChar (void newline <|> eof)
   return (key, trimEnd value)
     where trimEnd = reverse . dropWhile (' '==) . reverse
 
@@ -57,21 +57,32 @@ parseKVP = do
 
 type KVPs = M.Map String String
 
-parseHeader :: Parser KVPs
-parseHeader = fmap M.fromList $ skipNrrdMagic *> manyTill (skipComments *> parseKVP) newline
+parseHeader :: String -> Result KVPs
+parseHeader = parseString parser mempty
+  where
+    parser = fmap M.fromList $ skipNrrdMagic *> some (skipComments *> parseKVP)
 
-getKVPs :: String -> Result KVPs
-getKVPs s = parseString parseHeader mempty s
+
+getHeader :: String -> String
+getHeader s = case parseString parser mempty s of
+                (Success x) -> x
+                (Failure doc) -> error $ show doc
+   where
+     parser = manyTill anyChar end
+     end = (void $ string "\n\n") <|> eof
 
 parseSizes :: Parser [Integer]
 parseSizes = some integer
-
 
 -- Check for valid values
 
 maybeSuccess :: Result a -> Maybe a
 maybeSuccess (Success a) = Just a
 maybeSuccess _ = Nothing
+
+note :: e -> Maybe a -> Either e a
+note e Nothing  = Left e
+note _ (Just a) = Right a
 
 getSizes :: String -> Maybe [Integer]
 getSizes = maybeSuccess . (parseString parseSizes mempty)
@@ -83,6 +94,13 @@ checkSizes kvps validSizes =  sizes == validSizes
 
 -- Test
 p x = parseString x mempty
+
+main :: IO ()
+main = do
+  nrrd <- readFile "test.nhdr"
+  let hdr = getHeader nrrd
+  print hdr
+  print $ parseHeader hdr
 
 testHeader = [r|NRRD0004
 # Complete NRRD file format specification at:
