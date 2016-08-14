@@ -16,11 +16,14 @@ data DataType = UInt1 | Int1 | UInt2 | Int2 | UInt4 | Int4 | UInt8 | Int8 | Floa
 -- Space and orientation
 data Space = LPS | RPS | RAS | LAS
   deriving (Show, Eq)
-type SpaceDirections = [Int]
-type SpaceOrigin = [Int]
+
+type Tuple3 = (Double, Double, Double)
+data SpaceDirections =
+  StructuralSpace Tuple3 Tuple3 Tuple3 |
+  DWISpace Tuple3 Tuple3 Tuple3
+  deriving (Eq, Show)
 
 -- Per axis specifications
-type Dimension = Int
 type Sizes = [Int]
 type Kinds = [String]
 
@@ -48,13 +51,17 @@ parseKey = try twoWords <|> try oneWord
           w2 <- oneWord
           return $ w1++" "++w2
 
+eol :: Parser ()
+eol = choice $ map (try . (spaces *>)) [void newline, eof]
+  where
+    spaces = many $ char ' '
+
 parseKVP :: Parser (String, String)
 parseKVP = do
   key <- parseKey
   token $ char ':'
-  value <- manyTill anyChar (void newline <|> eof)
-  return (key, trimEnd value)
-    where trimEnd = reverse . dropWhile (' '==) . reverse
+  value <- manyTill anyChar eol
+  return (key, value)
 
 -- get header
 
@@ -102,35 +109,82 @@ readSpace s = case (map toLower s) of
   "right-anterior-superior" -> RAS
   "las" -> LAS
   "left-anterior-posterior" -> LAS
+  _ -> error "Invalid space"
 
--- Test
-p x = parseString x mempty
+dbl :: Parser Double
+dbl = try double <|> try intdouble
+  where
+    intdouble = fromInteger <$> integer
+
+parseTuple3 :: Parser Tuple3
+parseTuple3 = (,,) <$> (bo *> dbl <* sep) <*> (dbl <* sep) <*> (dbl <* bc<* spaces)
+  where
+    bo = token $ char '('
+    bc = token $ char ')'
+    sep = token $ char ','
+
+parseSpaceDirections :: Parser SpaceDirections
+parseSpaceDirections = do
+  choice $ map try [
+    DWISpace <$> parseTuple3 <*> parseTuple3 <*> (parseTuple3 <* string "none" <* eol),
+    StructuralSpace <$> parseTuple3 <*> parseTuple3 <*> (parseTuple3 <* eol)
+         ]
+
+readSpaceDirections :: String -> SpaceDirections
+readSpaceDirections s = fromResult (error errmsg) $ parseString parseSpaceDirections mempty s
+  where errmsg = "Invalid value in nrrd after 'space:'"
 
 
-type Validator = (String, String -> Bool)
+type Key = String
+type Predicate = String -> Bool
 
-validators :: [Validator]
+pred ::  (String -> a) -> (a -> a -> Bool) -> a -> Predicate
+pred readFunc predicate val = (predicate val) . readFunc
+
+assertKinds :: Kinds -> Predicate
+assertKinds e = (e ==) . readKinds
+  where readKinds = words . unwords . words
+
+assertSpace :: Space -> Predicate
+assertSpace s = (s ==) . readSpace
+
+assertSizes :: [Integer] -> Predicate
+assertSizes e = (e ==) . readArray
+
+assertSpaceDirections :: SpaceDirections -> Predicate
+assertSpaceDirections e = (e ==). readSpaceDirections
+
+assertOrigin :: Tuple3 -> Predicate
+assertOrigin e = (e ==) . rd
+  where rd = read :: String -> Tuple3
+
+validators :: [(Key, Predicate)]
 validators = [
-  ("dimension", (=="3") ),
-  ("encoding", (=="gzip") ),
-  ("sizes", (==[256,256,176]) . readArray),
-  ("space", (==LPS) . readSpace )
+  ("type", (== "short")),
+  ("dimension", (== "3")),
+  ("space", assertSpace LPS),
+  ("sizes", assertSizes [256,256,176]),
+  ("space directions", assertSpaceDirections $ StructuralSpace (0,1,0) (0,0,-1) (-1,0,0)),
+  ("kinds", assertKinds ["domain","domain","domain"]),
+  ("encoding", ("gzip" ==) ),
+  ("space origin", assertOrigin (87.5, -127.5, 127.5))
   ]
 
-validateKey :: KVPs -> (String, (String -> Bool)) -> Bool
-validateKey kvps (key, pred) = fromMaybe False $ pred <$> M.lookup key kvps
+validateKey :: (Key, Predicate) -> KVPs -> Bool
+validateKey (key, pred) kvps = fromMaybe False $ pred <$> M.lookup key kvps
 
-validate :: KVPs -> [(String, (String -> Bool))] -> Bool
-validate kvps preds = and $ map (validateKey kvps) preds
+validateKVPs :: [(Key, Predicate)] -> KVPs -> Bool
+validateKVPs validators kvps = and $ validateKey <$> validators <*> [kvps]
 
 main :: IO ()
 main = do
-  nrrd <- readFile "test.nhdr"
-  let hdr = getHeader nrrd
+  hdr <- getHeader <$> readFile "test.nhdr"
   print hdr
-  let kvps = readHeader hdr
-  putStrLn "Does test header pass?"
-  print $ validate kvps validators
+  putStrLn "Does good header pass?"
+  print $ readHeader hdr
+  print $ validateKVPs validators $ readHeader hdr
+  putStrLn "Does bad header pass?"
+  print $ validateKVPs validators $ readHeader badHeader
 
 testHeader = [r|NRRD0004
 # Complete NRRD file format specification at:
