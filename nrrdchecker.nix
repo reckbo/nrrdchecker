@@ -1,4 +1,5 @@
-{ mkDerivation, base, containers, raw-strings-qq, stdenv, trifecta
+{ mkDerivation, base, cmdargs, containers, raw-strings-qq, stdenv
+, trifecta
 }:
 mkDerivation {
   pname = "nrrdchecker";
@@ -7,7 +8,7 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    base containers raw-strings-qq trifecta
+    base cmdargs containers raw-strings-qq trifecta
   ];
   license = stdenv.lib.licenses.bsd3;
 }

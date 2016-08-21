@@ -1,0 +1,10 @@
+NRRD0004
+type: short
+dimension: 3
+space: left-posterior-superior
+sizes: 256 256 176
+space directions: (0 ,1 ,0) (0.0 ,0,-1) (-1,0,0)
+kinds: domain domain  domain
+endian:      little
+encoding:  gzip
+space origin: (87.5, -127.5,     127.5)
