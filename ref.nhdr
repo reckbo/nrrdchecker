@@ -1,5 +1,6 @@
 NRRD0004
-type: short
+content: eq(???,8)
+type:  short
 dimension: 3
 space: left-posterior-superior
 sizes: 256 256 176

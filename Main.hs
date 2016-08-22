@@ -192,7 +192,7 @@ readValue k s
 
 nrrdCheck :: KVPs -> KVPs -> Bool
 nrrdCheck kvps kvpsRef
-  = and $ map valsAreEqual $ M.elems $ M.intersectionWith (,) kvps kvpsRef
+  = and $ map valsAreEqual $ M.elems $ M.filterWithKey (\k _ -> k/="content") $ M.intersectionWith (,) kvps kvpsRef
     where
       valsAreEqual (v1, v2) = v1 == v2
 
