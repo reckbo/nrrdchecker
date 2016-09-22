@@ -53,7 +53,7 @@ readSpace s = case (map toLower s) of
 parseKey :: Parser String
 parseKey = try twoWords <|> try oneWord
   where
-    oneWord = some letter
+    oneWord = some (alphaNum <|> char '_' <|> char '-')
     twoWords = do
           w1 <- oneWord
           char ' '

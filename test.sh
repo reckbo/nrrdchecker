@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/bin/bash
 stack exec nrrdchecker -- -i test-data/mask.nrrd -r test-data/mask.nrrd
 stack exec nrrdchecker -- -i test-data/mask.nrrd -r test-data/ref.nhdr
 stack exec nrrdchecker -- -i test-data/dwi.nhdr -r test-data/dwi.nhdr
