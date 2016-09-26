@@ -40,7 +40,7 @@ main = do
       hPrintf stderr "INPUT: %s\n  REF: %s\n" (inNrrd args) (refNrrd args)
       hPutStr stderr diff
       printf "%s,fail\n" (inNrrd args)
-      exitSuccess
+      exitFailure
     failure -> do
       printf "%s,fail\n" (inNrrd args)
       hPutDoc stderr $ pretty failure <> linebreak
