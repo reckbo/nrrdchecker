@@ -54,7 +54,7 @@ data Value
   | VEndian String
   | VEncoding String
   | VSpaceOrigin Tuple3
-  | VGradientDir Double Double Double
+  | VGradientDir Tuple3
   | VMeasurementFrame Tuple3 Tuple3 Tuple3
   | VDefault String
   deriving (Show, Eq)

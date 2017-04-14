@@ -75,7 +75,7 @@ parseKVP = do
   -- valstr <- manyTill anyChar eol
   let parseStr = manyTill anyChar eol
   val <- if ("DWMRI_gradient" `isPrefixOf` key)
-    then VGradientDir <$> ((token $ char '=') *> dbl) <*> dbl <*> dbl
+    then fmap VGradientDir $ (,,) <$> ((token $ char '=') *> dbl) <*> dbl <*> dbl
     -- then VGradientDir <$> ((token $ char '=') *> double) <*> double <*> double
     else case key of
            "type" -> VDataType <$> parseStr

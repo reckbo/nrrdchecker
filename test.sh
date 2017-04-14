@@ -18,7 +18,9 @@ test() {
 
 test "$BIN -i test-data/mask.nrrd -r test-data/mask.nrrd" "pass"
 test "$BIN -i test-data/mask.nrrd -r test-data/ref.nhdr" "fail"
-test "$BIN -i test-data/dwi.nhdr -r test-data/dwi.nhdr" "pass"
 test "$BIN -i test-data/bad.nhdr -r test-data/ref.nhdr" "fail"
+test "$BIN -i test-data/dwi.nhdr -r test-data/dwi.nhdr" "pass"
 test "$BIN -i test-data/dwi.nhdr -r test-data/dwi2.nhdr" "pass"
-test "$BIN -i test-data/dwi.nhdr -r test-data/dwi3.nhdr" "fail"
+test "$BIN -i test-data/dwi.nhdr -r test-data/dwi3.nhdr" "pass"
+test "$BIN -i test-data/dwi.nhdr -r test-data/dwi4.nhdr" "fail"
+test "$BIN --gradientDirection 0.15 -i test-data/dwi.nhdr -r test-data/dwi4.nhdr" "pass"
