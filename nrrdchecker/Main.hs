@@ -6,10 +6,7 @@ import           System.Console.CmdArgs
 import           System.Exit                  (exitFailure, exitSuccess)
 import           System.IO                    (stderr, hPutStr)
 import           Text.Printf                  (printf, hPrintf)
-import           Nrrd.Parser                  (readNrrdHeader)
-import           Nrrd.Types                   (KVPs)
-import           Text.PrettyPrint.ANSI.Leijen (linebreak, hPutDoc, (<>), pretty)
-import           Text.Trifecta                (Result (..))
+import           Data.Nrrd
 
 nrrdDiff :: KVPs -> KVPs -> Maybe String
 nrrdDiff kvps kvpsRef
@@ -19,17 +16,20 @@ nrrdDiff kvps kvpsRef
                     | otherwise = Just (printf "* %s:\n input value: %s\n   ref value: %s\n" k (show v) (show v'))
       kvpsZipped = M.intersectionWith (,) kvps kvpsRef
 
-data NrrdCheckerArgs = NrrdCheckerArgs {inNrrd, refNrrd :: String}
+data NrrdChecker = NrrdChecker {inNrrd, refNrrd :: FilePath}
   deriving (Show, Data, Typeable)
 
-nrrdcheckerArgs :: NrrdCheckerArgs
-nrrdcheckerArgs
-  = NrrdCheckerArgs{ inNrrd = def &= typ "NRRD"
-                   , refNrrd = def &= typ "NRRD" }
+-- filterGradientDir :: KVPS ->
+
+nrrdchecker :: NrrdChecker
+nrrdchecker
+  = NrrdChecker { inNrrd = def &= typFile
+                , refNrrd = def &= typFile }
+    &= summary "Computes the diff between the headers of two nrrd files."
 
 main :: IO ()
 main = do
-  args <- cmdArgs nrrdcheckerArgs
+  args <- cmdArgs nrrdchecker
   refHeader <- readNrrdHeader $ refNrrd args
   inHeader <- readNrrdHeader $ inNrrd args
   case nrrdDiff <$> inHeader <*> refHeader of
@@ -43,5 +43,5 @@ main = do
       exitFailure
     failure -> do
       printf "%s,fail\n" (inNrrd args)
-      hPutDoc stderr $ pretty failure <> linebreak
+      printResult failure
       exitFailure

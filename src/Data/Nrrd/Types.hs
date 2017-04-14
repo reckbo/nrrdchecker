@@ -1,4 +1,4 @@
-module Nrrd.Types
+module Data.Nrrd.Types
   (
     Key
   , Value (..)
@@ -54,6 +54,8 @@ data Value
   | VEndian String
   | VEncoding String
   | VSpaceOrigin Tuple3
+  | VGradientDir Double Double Double
+  | VMeasurementFrame Tuple3 Tuple3 Tuple3
   | VDefault String
   deriving (Show, Eq)
 
