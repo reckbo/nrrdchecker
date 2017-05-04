@@ -16,7 +16,7 @@ import           Data.Csv            (ToField (..), encode)
 import           Data.Semigroup      ((<>))
 import           Options.Applicative hiding (Success)
 import qualified Data.ByteString.Char8 as B (pack, putStr)
-import qualified Data.ByteString.Lazy as BL (toStrict)
+import qualified Data.ByteString.Lazy as BL (toStrict, writeFile)
 
 
 epsilon :: Double
@@ -28,7 +28,9 @@ data EpsilonConfig = EpsilonConfig
 
 
 data NrrdCheckerArgs = NrrdCheckerArgs
-  {inNrrd, refNrrd :: FilePath,
+  {inNrrd :: FilePath,
+   refNrrd :: FilePath,
+   outfile :: Maybe FilePath,
    epsilonConfig   :: EpsilonConfig
   }
 
@@ -109,6 +111,12 @@ args = NrrdCheckerArgs
           <> short 'r'
           <> metavar "NRRD"
           <> help "Reference nrrd")
+      <*> optional (strOption
+          (long "out"
+           <> short 'o'
+           <> metavar "OUTFILE"
+           <> help "Output csv (if omitted, prints to stdout)"
+          ))
       <*> (EpsilonConfig
         <$> epsilonOption "spaceDirections"
         <*> epsilonOption "measurementFrame"
@@ -137,8 +145,10 @@ nrrdchecker NrrdCheckerArgs{..} = do
   inNhdr <- readNrrdHeader $ inNrrd
   case nrrdDiff epsilonConfig <$> inNhdr <*> refNhdr of
     Success tuples -> do
-      B.putStr . BL.toStrict . encode $ tuples
-      exitSuccess
+      case outfile of
+        Nothing -> do B.putStr . BL.toStrict . encode $ tuples
+                      exitSuccess
+        Just outfile' -> BL.writeFile outfile' (encode tuples)
     failure -> do -- failed to parse nrrd
       printResult failure
       exitFailure
