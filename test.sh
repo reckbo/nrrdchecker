@@ -2,25 +2,29 @@
 
 BIN="stack exec -- nrrdchecker"
 
-test() {
-    echo "# TEST =================================="
-    cmd=$1
-    resultExpect=$2
-    out=$($cmd)
-    result=$(echo $out | cut -d"," -f2)
-    if [[ "$result" == "$resultExpect" ]]; then
-        echo "Test passed."
-    else
-        echo "Test failed"
-    fi
-    echo "========================================="
-}
+TESTDIR=testdata
 
-test "$BIN -i test-data/mask.nrrd -r test-data/mask.nrrd" "pass"
-test "$BIN -i test-data/mask.nrrd -r test-data/ref.nhdr" "fail"
-test "$BIN -i test-data/bad.nhdr -r test-data/ref.nhdr" "fail"
-test "$BIN -i test-data/dwi.nhdr -r test-data/dwi.nhdr" "pass"
-test "$BIN -i test-data/dwi.nhdr -r test-data/dwi2.nhdr" "pass"
-test "$BIN -i test-data/dwi.nhdr -r test-data/dwi3.nhdr" "pass"
-test "$BIN -i test-data/dwi.nhdr -r test-data/dwi4.nhdr" "fail"
-test "$BIN --gradientDirection 0.15 -i test-data/dwi.nhdr -r test-data/dwi4.nhdr" "pass"
+nhdrs=$(ls $TESTDIR/*-*nhdr)
+for nhdr in $nhdrs; do
+    echo "###################################################"
+    echo "# $nhdr"
+    bn=$(basename $nhdr)
+    stem=${bn%.*}
+    csv=$TESTDIR/$stem.csv
+    ref=${nhdr%-*}.nhdr
+    cmd="$BIN -i $ref -r $nhdr"
+    echo $cmd
+    if [ ! -e $csv ]; then
+        $($cmd > $csv)
+        echo "Made '$csv'"
+    else
+        d=$(diff <($cmd) $csv)
+        if [ "$d" ]; then
+            echo "FAIL: $nhdr"
+            echo $d
+        else
+            echo "PASS: $nhdr"
+        fi
+    fi
+    echo
+done

@@ -28,8 +28,8 @@ data Space = LPS | RPS | RAS | LAS
 type Tuple3 = (Double, Double, Double)
 
 data SpaceDirections
-  = StructuralSpace Tuple3 Tuple3 Tuple3
-  | DWISpace Tuple3 Tuple3 Tuple3
+  = StructuralSpaceDirections Tuple3 Tuple3 Tuple3
+  | DWISpaceDirections Tuple3 Tuple3 Tuple3
   deriving (Eq, Show)
 
 -- type SpaceOrigin = Tuple3
@@ -58,5 +58,14 @@ data Value
   | VMeasurementFrame Tuple3 Tuple3 Tuple3
   | VDefault String
   deriving (Show, Eq)
+
+-- instance Show Value where
+--   show (VDataType s) = s
+--   show (VEndian s) = s
+--   show (VEncoding s) = s
+--   show (VMeasurementFrame x1 x2 x3) = unwords [show x1, show x2, show x3]
+--   show (VDefault s) = s
+--   show x = unwords . tail . words. show $ x
+
 
 type KVPs = M.Map Key Value

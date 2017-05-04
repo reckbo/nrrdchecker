@@ -1,0 +1,9 @@
+dimension,3,3,,True
+encoding,gzip,gzip,,True
+endian,little,little,,True
+kinds,"[domain,domain,domain]","[domain,domain,domain]",,True
+sizes,"[256,256,176]","[256,256,176]",,True
+space,LPS,LPS,,True
+"space directions","(StructuralSpaceDirections (0.0,1.0,0.0) (0.0,0.0,-1.0) (-1.0,0.0,0.0))","(StructuralSpaceDirections (0.0,2.0,0.0) (0.0,0.0,-1.0) (-1.0,0.0,0.0))",5.0e-2,False
+"space origin","(87.5,-127.5,127.5)","(87.5,-127.5,127.5)",5.0e-2,True
+type,short,short,,True

@@ -12,7 +12,7 @@ import           Data.List                    (isPrefixOf)
 import qualified Data.Map                     as M
 import           Data.Nrrd.Types
 import           System.IO                    (stderr)
-import           Text.PrettyPrint.ANSI.Leijen (hPutDoc, linebreak, pretty, (<>))
+import           Text.PrettyPrint.ANSI.Leijen (hPutDoc, linebreak, pretty, (<>), Pretty (..))
 import           Text.Trifecta
 
 skipComments :: Parser [String]
@@ -43,8 +43,8 @@ parseSpaceDirections :: Parser SpaceDirections
 parseSpaceDirections = do
   choice [ try parseDWI, try parseStrct ]
   where
-     parseStrct = StructuralSpace <$> parseTuple3 <*> parseTuple3 <*> parseTuple3
-     parseDWI = DWISpace <$> parseTuple3 <*> parseTuple3 <*>
+     parseStrct = StructuralSpaceDirections <$> parseTuple3 <*> parseTuple3 <*> parseTuple3
+     parseDWI = DWISpaceDirections <$> parseTuple3 <*> parseTuple3 <*>
       (parseTuple3 <* string "none" <* eol)
 
 readSpace :: String -> Space
@@ -68,28 +68,34 @@ parseKey = try twoWords <|> try oneWord
           return $ w1++" "++w2
 
 
+parseSeparator :: Parser ()
+parseSeparator = try s <|> try s'
+  where
+    s = void $ token (string ":=")
+    s' = void $ token (char ':')
+
+parseStringValue :: Parser String
+parseStringValue = manyTill anyChar eol
+
 parseKVP :: Parser (Key, Value)
 parseKVP = do
   key <- parseKey
-  _ <- token $ char ':'
-  -- valstr <- manyTill anyChar eol
-  let parseStr = manyTill anyChar eol
+  parseSeparator
   val <- if ("DWMRI_gradient" `isPrefixOf` key)
-    then fmap VGradientDir $ (,,) <$> ((token $ char '=') *> dbl) <*> dbl <*> dbl
-    -- then VGradientDir <$> ((token $ char '=') *> double) <*> double <*> double
+    then fmap VGradientDir $ (,,) <$> dbl <*> dbl <*> dbl
     else case key of
-           "type" -> VDataType <$> parseStr
+           "type" -> VDataType <$> parseStringValue
            "dimension" -> VDimension <$> natural
-           "space" -> VSpace . readSpace <$> parseStr
+           "space" -> VSpace . readSpace <$> parseStringValue
            "sizes" -> VSizes <$> some natural
            "space directions" -> VSpaceDirections <$> parseSpaceDirections
-           "kinds" -> VKinds . words . unwords . words <$> parseStr
-           "endian" -> VEndian <$> parseStr
-           "encoding" -> VEncoding <$> parseStr
+           "kinds" -> VKinds . words . unwords . words <$> parseStringValue
+           "endian" -> VEndian <$> parseStringValue
+           "encoding" -> VEncoding <$> parseStringValue
            "space origin" -> VSpaceOrigin <$> parseTuple3
            "measurement frame" -> VMeasurementFrame <$> parseTuple3 <*> parseTuple3
              <*> parseTuple3
-           _ -> VDefault <$> parseStr
+           _ -> VDefault <$> parseStringValue
   return (key, val)
 
 parseHeader :: Parser KVPs
@@ -98,5 +104,5 @@ parseHeader = fmap M.fromList $ skipNrrdMagic *> some (skipComments *> parseKVP)
 readNrrdHeader :: FilePath -> IO (Result KVPs)
 readNrrdHeader nrrd = parseFromFileEx parseHeader nrrd
 
-printResult :: Result (Maybe String) -> IO ()
+printResult :: Pretty a => a -> IO ()
 printResult x = hPutDoc stderr $ pretty x <> linebreak
