@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -6,7 +7,9 @@
 
 import           Data.List           (intercalate)
 import qualified Data.Map            as M (filterWithKey, foldMapWithKey,
-                                            intersectionWith)
+                                            intersectionWith, unionsWith, map,
+                                            mapWithKey, toList
+                                          )
 import           Data.Nrrd
 import           System.Exit         (exitFailure, exitSuccess)
 -- import           System.IO           (hPutStr, stderr)
@@ -15,7 +18,7 @@ import           System.Exit         (exitFailure, exitSuccess)
 import           Data.Csv            (ToField (..), encode)
 import           Data.Semigroup      ((<>))
 import           Options.Applicative hiding (Success)
-import qualified Data.ByteString.Char8 as B (pack, putStr)
+import qualified Data.ByteString.Char8 as B (pack, putStr, intercalate)
 import qualified Data.ByteString.Lazy as BL (toStrict, writeFile)
 
 
@@ -28,8 +31,7 @@ data EpsilonConfig = EpsilonConfig
 
 
 data NrrdCheckerArgs = NrrdCheckerArgs
-  {inNrrd :: FilePath,
-   refNrrd :: FilePath,
+  {inputNrrds :: (FilePath, FilePath, [FilePath]),
    outfile :: Maybe FilePath,
    epsilonConfig   :: EpsilonConfig
   }
@@ -77,8 +79,11 @@ veq _ x x' = (Nothing, x == x')
 
 instance ToField Value where
   toField = B.pack . unwords . tail . words . filter (/='\\') . filter (/='"') . show
+instance ToField [Value] where
+  toField xs = B.intercalate "|" $ map toField xs
 instance ToField Bool where
   toField = B.pack . show
+
 
 nrrdDiff :: EpsilonConfig -> KVPs -> KVPs -> [(Key, Value, Value, Maybe Double, Bool)]
 nrrdDiff epsilonConfig kvps kvpsRef
@@ -87,6 +92,35 @@ nrrdDiff epsilonConfig kvps kvpsRef
       diff k (v,v') = [(k, v, v', eps, ans)]
         where (eps, ans) = (veq epsilonConfig v v')
       kvpsZipped = M.intersectionWith (,) kvps kvpsRef
+
+
+nrrdDiff2 :: EpsilonConfig -> [KVPs] -> [(Key, [Value], Maybe Double, Bool)]
+nrrdDiff2 epsilonConfig ms
+  = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") mapWithLists
+    where
+      diff k vs = [(k, vs, eps, ans)]
+        where
+          allEqual (x:x':xs') = (eps, ans)
+            where
+              ys = map (veq epsilonConfig $ x) (x':xs')
+              ans = and $ map snd ys
+              eps = fst . head $ ys
+          allEqual _ = error "Shouldn't be here"
+          (eps, ans) = allEqual vs
+          -- (eps, ans) = (veq' epsilonConfig vs)
+      mapWithLists = M.unionsWith (++) (map (M.map (:[])) ms)
+
+
+nrrdDiff3 :: EpsilonConfig -> [FilePath] -> [KVPs] -> [(FilePath, Key, Value, Maybe Double, Bool)]
+nrrdDiff3 epsilonConfig fs ms
+  = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") mapWithLists
+    where
+      diff _ [] = []
+      diff k vs@(v:vs') = map (\(f,v,b) -> (f, k, v, eps, b)) (zip3 fs vs bools)
+            where
+              (eps, _) = veq epsilonConfig v v
+              bools = True : map (snd . (veq epsilonConfig v)) vs'
+      mapWithLists = M.unionsWith (++) (map (M.map (:[])) ms)
 
 
 -- epsilonOption :: String ->
@@ -98,19 +132,22 @@ epsilonOption name =
               <> value epsilon
               <> metavar "DOUBLE" )
 
+nrrdList :: String -> (String, String, [String])
+nrrdList s = case words s of
+  (x:x':xs) -> (x,x',xs)
+  _ -> error "Must have at least 2 input nrrds."
+
+nrrdOption :: Parser String
+nrrdOption = (strOption
+      ( long "in"
+      <> short 'i'
+      <> metavar "NRRD"
+      <> help "a Nrrd file"
+      ))
 
 args :: Parser NrrdCheckerArgs
 args = NrrdCheckerArgs
-      <$> strOption
-          ( long "inNrrd"
-          <> short 'i'
-          <> metavar "NRRD"
-          <> help "Input nrrd")
-      <*> strOption
-          ( long "refNrrd"
-          <> short 'r'
-          <> metavar "NRRD"
-          <> help "Reference nrrd")
+      <$> ((,,) <$> nrrdOption <*> nrrdOption <*> many nrrdOption)
       <*> optional (strOption
           (long "out"
            <> short 'o'
@@ -130,20 +167,20 @@ main = nrrdchecker =<< execParser opts
   where
     opts = info (args <**> helper)
       ( fullDesc
-     <> header "Compares the headers of two nrrd files." )
+     <> header "Compares the headers of two or more nrrd files." )
 
 
-toCsv :: String -> String -> [(Key, Value, Value)] -> String
-toCsv nrrd nrrdRef tuples = unlines . map (intercalate ",") $ [header] ++ rows
-  where header = ["nrrd", "nrrdRef", "key", "value", "valueRef"]
-        rows = (map (\(k, v, v') -> [nrrd,nrrdRef,show k, printVal v, printVal v']) tuples)
-        printVal v = unwords . tail . words . show $ v
+-- toCsv :: String -> String -> [(Key, Value, Value)] -> String
+-- toCsv nrrd nrrdRef tuples = unlines . map (intercalate ",") $ [header] ++ rows
+--   where header = ["nrrd", "nrrdRef", "key", "value", "valueRef"]
+--         rows = (map (\(k, v, v') -> [nrrd,nrrdRef,show k, printVal v, printVal v']) tuples)
+--         printVal v = unwords . tail . words . show $ v
 
 nrrdchecker :: NrrdCheckerArgs -> IO ()
 nrrdchecker NrrdCheckerArgs{..} = do
-  refNhdr <- readNrrdHeader $ refNrrd
-  inNhdr <- readNrrdHeader $ inNrrd
-  case nrrdDiff epsilonConfig <$> inNhdr <*> refNhdr of
+  let inputNrrds' = x:x':xs where (x,x',xs) = inputNrrds
+  parsedNhdrs <- sequenceA <$> traverse readNrrdHeader inputNrrds'
+  case nrrdDiff3 epsilonConfig inputNrrds' <$> parsedNhdrs of
     Success tuples -> do
       case outfile of
         Nothing -> do B.putStr . BL.toStrict . encode $ tuples

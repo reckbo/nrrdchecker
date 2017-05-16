@@ -11,11 +11,11 @@ for nhdr in $nhdrs; do
     bn=$(basename $nhdr)
     stem=${bn%.*}
     csv=$TESTDIR/$stem.csv
-    ref=${nhdr%-*}.nhdr
-    cmd="$BIN -i $ref -r $nhdr"
+    ref=${nhdr%%-*}.nhdr
+    cmd="$BIN -i $ref -i $nhdr"
     echo $cmd
     if [ ! -e $csv ]; then
-        $($cmd > $csv)
+        $cmd > $csv
         echo "Made '$csv'"
     else
         d=$(diff <($cmd) $csv)
