@@ -185,7 +185,7 @@ nrrdchecker NrrdCheckerArgs{..} = do
       case outfile of
         Nothing -> do B.putStr . BL.toStrict . (BL.append header) . encode $ tuples
                       exitSuccess
-        Just outfile' -> BL.writeFile outfile' (encode tuples)
+        Just outfile' -> BL.writeFile outfile' . (BL.append header) . encode $ tuples
     failure -> do -- failed to parse nrrd
       printResult failure
       exitFailure
