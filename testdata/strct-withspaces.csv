@@ -1,3 +1,4 @@
+filepath,key,value,epsilon,isequal
 testdata/strct.nhdr,dimension,3,,True
 testdata/strct-withspaces.nhdr,dimension,3,,True
 testdata/strct.nhdr,encoding,gzip,,True

@@ -1,3 +1,4 @@
+filepath,key,value,epsilon,isequal
 testdata/dwi.nhdr,DWMRI_b-value,900,,True
 testdata/dwi-leading-zeroes.nhdr,DWMRI_b-value,900,,True
 testdata/dwi.nhdr,DWMRI_gradient_0000,"(0.0,0.0,0.0)",5.0e-2,True

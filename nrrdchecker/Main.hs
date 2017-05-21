@@ -5,7 +5,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-import           Data.List           (intercalate)
 import qualified Data.Map            as M (filterWithKey, foldMapWithKey,
                                             intersectionWith, unionsWith, map,
                                             mapWithKey, toList
@@ -19,7 +18,7 @@ import           Data.Csv            (ToField (..), encode)
 import           Data.Semigroup      ((<>))
 import           Options.Applicative hiding (Success)
 import qualified Data.ByteString.Char8 as B (pack, putStr, intercalate)
-import qualified Data.ByteString.Lazy as BL (toStrict, writeFile)
+import qualified Data.ByteString.Lazy as BL (toStrict, writeFile, ByteString(..), append)
 
 
 epsilon :: Double
@@ -179,11 +178,12 @@ main = nrrdchecker =<< execParser opts
 nrrdchecker :: NrrdCheckerArgs -> IO ()
 nrrdchecker NrrdCheckerArgs{..} = do
   let inputNrrds' = x:x':xs where (x,x',xs) = inputNrrds
+      header = encode [["filepath" :: String, "key", "value", "epsilon", "isequal"]] :: BL.ByteString
   parsedNhdrs <- sequenceA <$> traverse readNrrdHeader inputNrrds'
   case nrrdDiff3 epsilonConfig inputNrrds' <$> parsedNhdrs of
     Success tuples -> do
       case outfile of
-        Nothing -> do B.putStr . BL.toStrict . encode $ tuples
+        Nothing -> do B.putStr . BL.toStrict . (BL.append header) . encode $ tuples
                       exitSuccess
         Just outfile' -> BL.writeFile outfile' (encode tuples)
     failure -> do -- failed to parse nrrd
