@@ -10,7 +10,7 @@ for nhdr in $nhdrs; do
     echo "# $nhdr"
     bn=$(basename $nhdr)
     stem=${bn%.*}
-    csv=$TESTDIR/$stem.csv
+    csv=$TESTDIR/_${stem}.csv
     ref=${nhdr%%-*}.nhdr
     cmd="$BIN -i $ref -i $nhdr"
     echo $cmd

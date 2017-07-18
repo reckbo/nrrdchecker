@@ -110,16 +110,16 @@ nrrdDiff2 epsilonConfig ms
       mapWithLists = M.unionsWith (++) (map (M.map (:[])) ms)
 
 
-nrrdDiff3 :: EpsilonConfig -> [FilePath] -> [KVPs] -> [(FilePath, Key, Value, Maybe Double, Bool)]
-nrrdDiff3 epsilonConfig fs ms
+nrrdDiff3 :: EpsilonConfig -> [FilePath] -> [KVPs] -> [(FilePath, FilePath, Key, Value, Value, Maybe Double, Bool)]
+nrrdDiff3 epsilonConfig (filepath0:filepaths) kvpmaps
   = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") mapWithLists
     where
       diff _ [] = []
-      diff k vs@(v:vs') = map (\(f,v,b) -> (f, k, v, eps, b)) (zip3 fs vs bools)
+      diff k (v0:vs) = map (\(filepath,v,b) -> (filepath0, filepath, k, v0, v, eps, b)) (zip3 filepaths vs bools)
             where
-              (eps, _) = veq epsilonConfig v v
-              bools = True : map (snd . (veq epsilonConfig v)) vs'
-      mapWithLists = M.unionsWith (++) (map (M.map (:[])) ms)
+              (eps, _) = veq epsilonConfig v0 v0
+              bools = map (snd . (veq epsilonConfig v0)) vs
+      mapWithLists = M.unionsWith (++) (map (M.map (:[])) kvpmaps)
 
 
 -- epsilonOption :: String ->
@@ -178,7 +178,7 @@ main = nrrdchecker =<< execParser opts
 nrrdchecker :: NrrdCheckerArgs -> IO ()
 nrrdchecker NrrdCheckerArgs{..} = do
   let inputNrrds' = x:x':xs where (x,x',xs) = inputNrrds
-      header = encode [["filepath" :: String, "key", "value", "epsilon", "isequal"]] :: BL.ByteString
+      header = encode [["filepathRef" :: String, "filepath" :: String, "key", "valueRef", "value", "epsilon", "isequal"]] :: BL.ByteString
   parsedNhdrs <- sequenceA <$> traverse readNrrdHeader inputNrrds'
   case nrrdDiff3 epsilonConfig inputNrrds' <$> parsedNhdrs of
     Success tuples -> do
