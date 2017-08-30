@@ -1,0 +1,34 @@
+NRRD0005
+# Complete NRRD file format specification at:
+# http://teem.sourceforge.net/nrrd/format.html
+content: exists(023_NAA_006-dwi.raw.gz,0)
+type: short
+dimension: 4
+space: left-posterior-superior
+sizes: 128 128 73 87
+thicknesses: NaN NaN 2 NaN
+space directions: (2,0,0) (0,2,0) (0,0,2) none
+centerings: cell cell cell ???
+kinds: space space space list
+endian: little
+encoding: gzip
+space units: "mm" "mm" "mm"
+space origin: (-128,-128,-73)
+measurement frame: (1,0,0) (0,1,0) (0,0,1)
+data file: 023_NAA_006-dwi-Ed.raw.gz
+modality:=DWMRI
+DWMRI_b-value:=900
+DWMRI_gradient_0000:= 0.0 0.0 0.0
+DWMRI_gradient_0001:= 0.003341784783 0.179277704411 0.170997095529
+DWMRI_gradient_0002:= 0.00290788149711 0.181404888579 -0.279633404916
+DWMRI_gradient_0003:= 0.172646250908 0.285077327663 -0.00593518859543
+DWMRI_gradient_0004:= 0.172584419421 -0.285037789394 -0.00889460254461
+DWMRI_gradient_0005:= 0.284785259189 0.00474190451631 0.173164282123
+DWMRI_gradient_0006:= -0.285197141972 -0.00682187280901 0.172415342632
+DWMRI_gradient_0007:= 0.385223157277 0.384486744383 0.384991072038
+DWMRI_gradient_0008:= 0.000841881493023 0.621970375748 0.239992925582
+DWMRI_gradient_0009:= 0.23726444292 -0.00417069323784 0.623003303856
+DWMRI_gradient_0010:= -0.23928166276 -0.0111653263951 0.622145118541
+DWMRI_gradient_0011:= -0.384913794816 0.384999093224 0.384788424767
+DWMRI_gradient_0012:= 0.0013155012494 0.628818968106 -0.22142543879
+DWMRI_gradient_0013:= 0.385532387007 0.394823892926 -0.374064079004
