@@ -1,13 +1,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
-{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 
 import qualified Data.Map            as M (filterWithKey, foldMapWithKey,
-                                            intersectionWith, unionsWith, map,
-                                            mapWithKey, toList
+                                            intersectionWith, unionsWith, map
                                           )
 import           Data.Nrrd
 import           System.Exit         (exitFailure, exitSuccess)
@@ -18,7 +16,7 @@ import           Data.Csv            (ToField (..), encode)
 import           Data.Semigroup      ((<>))
 import           Options.Applicative hiding (Success)
 import qualified Data.ByteString.Char8 as B (pack, putStr, intercalate)
-import qualified Data.ByteString.Lazy as BL (toStrict, writeFile, ByteString(..), append)
+import qualified Data.ByteString.Lazy as BL (toStrict, writeFile, ByteString, append)
 
 
 epsilon :: Double
@@ -84,30 +82,30 @@ instance ToField Bool where
   toField = B.pack . show
 
 
-nrrdDiff :: EpsilonConfig -> KVPs -> KVPs -> [(Key, Value, Value, Maybe Double, Bool)]
-nrrdDiff epsilonConfig kvps kvpsRef
-  = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") $ kvpsZipped
-    where
-      diff k (v,v') = [(k, v, v', eps, ans)]
-        where (eps, ans) = (veq epsilonConfig v v')
-      kvpsZipped = M.intersectionWith (,) kvps kvpsRef
+-- nrrdDiff :: EpsilonConfig -> KVPs -> KVPs -> [(Key, Value, Value, Maybe Double, Bool)]
+-- nrrdDiff epsilonConfig kvps kvpsRef
+--   = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") kvpsZipped
+--     where
+--       diff k (v,v') = [(k, v, v', eps, ans)]
+--         where (eps, ans) = veq epsilonConfig v v'
+--       kvpsZipped = M.intersectionWith (,) kvps kvpsRef
 
 
-nrrdDiff2 :: EpsilonConfig -> [KVPs] -> [(Key, [Value], Maybe Double, Bool)]
-nrrdDiff2 epsilonConfig ms
-  = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") mapWithLists
-    where
-      diff k vs = [(k, vs, eps, ans)]
-        where
-          allEqual (x:x':xs') = (eps, ans)
-            where
-              ys = map (veq epsilonConfig $ x) (x':xs')
-              ans = and $ map snd ys
-              eps = fst . head $ ys
-          allEqual _ = error "Shouldn't be here"
-          (eps, ans) = allEqual vs
-          -- (eps, ans) = (veq' epsilonConfig vs)
-      mapWithLists = M.unionsWith (++) (map (M.map (:[])) ms)
+-- nrrdDiff2 :: EpsilonConfig -> [KVPs] -> [(Key, [Value], Maybe Double, Bool)]
+-- nrrdDiff2 epsilonConfig ms
+--   = M.foldMapWithKey diff $ M.filterWithKey (\k _ -> k/="content") mapWithLists
+--     where
+--       diff k vs = [(k, vs, eps, ans)]
+--         where
+--           allEqual (x:x':xs') = (eps, ans)
+--             where
+--               ys = map (veq epsilonConfig x) (x':xs')
+--               ans = all snd ys
+--               eps = fst . head $ ys
+--           allEqual _ = error "Shouldn't be here"
+--           (eps, ans) = allEqual vs
+--           -- (eps, ans) = (veq' epsilonConfig vs)
+--       mapWithLists = M.unionsWith (++) (map (M.map (:[])) ms)
 
 
 nrrdDiff3 :: EpsilonConfig -> [FilePath] -> [KVPs] -> [(FilePath, FilePath, Key, Value, Value, Maybe Double, Bool)]
@@ -118,7 +116,7 @@ nrrdDiff3 epsilonConfig (filepath0:filepaths) kvpmaps
       diff k (v0:vs) = map (\(filepath,v,b) -> (filepath0, filepath, k, v0, v, eps, b)) (zip3 filepaths vs bools)
             where
               (eps, _) = veq epsilonConfig v0 v0
-              bools = map (snd . (veq epsilonConfig v0)) vs
+              bools = map (snd . veq epsilonConfig v0) vs
       mapWithLists = M.unionsWith (++) (map (M.map (:[])) kvpmaps)
 
 
@@ -131,18 +129,18 @@ epsilonOption name =
               <> value epsilon
               <> metavar "DOUBLE" )
 
-nrrdList :: String -> (String, String, [String])
-nrrdList s = case words s of
-  (x:x':xs) -> (x,x',xs)
-  _ -> error "Must have at least 2 input nrrds."
+-- nrrdList :: String -> (String, String, [String])
+-- nrrdList s = case words s of
+--   (x:x':xs) -> (x,x',xs)
+--   _ -> error "Must have at least 2 input nrrds."
 
 nrrdOption :: Parser String
-nrrdOption = (strOption
+nrrdOption = strOption
       ( long "in"
       <> short 'i'
       <> metavar "NRRD"
       <> help "a Nrrd file"
-      ))
+      )
 
 args :: Parser NrrdCheckerArgs
 args = NrrdCheckerArgs
@@ -181,11 +179,11 @@ nrrdchecker NrrdCheckerArgs{..} = do
       header = encode [["filepathRef" :: String, "filepath" :: String, "key", "valueRef", "value", "epsilon", "isequal"]] :: BL.ByteString
   parsedNhdrs <- sequenceA <$> traverse readNrrdHeader inputNrrds'
   case nrrdDiff3 epsilonConfig inputNrrds' <$> parsedNhdrs of
-    Success tuples -> do
+    Success tuples ->
       case outfile of
-        Nothing -> do B.putStr . BL.toStrict . (BL.append header) . encode $ tuples
+        Nothing -> do B.putStr . BL.toStrict . BL.append header . encode $ tuples
                       exitSuccess
-        Just outfile' -> BL.writeFile outfile' . (BL.append header) . encode $ tuples
+        Just outfile' -> BL.writeFile outfile' . BL.append header . encode $ tuples
     failure -> do -- failed to parse nrrd
       printResult failure
       exitFailure
